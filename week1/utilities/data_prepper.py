@@ -242,8 +242,6 @@ class DataPrepper:
         feature_results["doc_id"] = []  # capture the doc id so we can join later
         feature_results["query_id"] = []  # ^^^
         feature_results["sku"] = []
-        feature_results["name_match"] = []
-        rng = np.random.default_rng(12345)
         for doc_id, document in returned_documents.items():
             feature_results["doc_id"].append(doc_id)  # capture the doc id so we can join later
             feature_results["query_id"].append(query_id)
@@ -251,6 +249,8 @@ class DataPrepper:
 
             extra_features = map(lambda feature: (feature["name"], feature.get("value", 0.)),document["fields"]["_ltrlog"][0]["log_entry"])
             for feature, value in extra_features:
+                if feature not in feature_results.keys():
+                    feature_results[feature] = []
                 feature_results[feature].append(value)
 
         frame = pd.DataFrame(feature_results)
