@@ -12,6 +12,157 @@
             "name": "{{keywords}}"
           }
         }
+      },
+      {
+        "name": "tags_match",
+        "params": [
+          "keywords"
+        ],
+        "template_language": "mustache",
+        "template": {
+          "match": {
+            "tags": "{{keywords}}"
+          }
+        }
+      },
+      {
+        "name": "name_match_phrase",
+        "params": [
+          "keywords"
+        ],
+        "template_language": "mustache",
+        "template": {
+          "match_phrase": {
+            "name": "{{keywords}}"
+          }
+        }
+      },
+      {
+        "name": "artist_name_match_phrase",
+        "params": [
+          "keywords"
+        ],
+        "template_language": "mustache",
+        "template": {
+          "match_phrase": {
+            "artistName": {
+              "query": "{{keywords}}",
+              "slop": 6
+            }
+          }
+        }
+      },
+      {
+        "name": "short_description_match_phrase",
+        "params": [
+          "keywords"
+        ],
+        "template_language": "mustache",
+        "template": {
+          "match_phrase": {
+            "shortDescription": {
+              "query": "{{keywords}}",
+              "slop": 6
+            }
+          }
+        }
+      },
+      {
+        "name": "long_description_match_phrase",
+        "params": [
+          "keywords"
+        ],
+        "template_language": "mustache",
+        "template": {
+          "match_phrase": {
+            "longDescription": {
+              "query": "{{keywords}}",
+              "slop": 6
+            }
+          }
+        }
+      },
+      {
+        "name": "sku_match",
+        "params": [
+          "keywords"
+        ],
+        "template_language": "mustache",
+        "template": {
+          "constant_score": {
+            "filter": {
+              "match": {
+                "sku": "{{keywords}}"
+              }
+            },
+            "boost": 1.0
+          }
+        }
+      },
+      {
+        "name": "customer_review_count",
+        "template_language": "mustache",
+        "template": {
+          "function_score": {
+            "functions": [{
+                "field_value_factor": {
+                    "field": "customerReviewCount",
+                    "missing": 0
+                }
+            }],
+            "query": {
+              "match_all": {}
+            }
+          }
+        }
+      },
+      {
+        "name": "customer_review_average",
+        "template_language": "mustache",
+        "template": {
+          "function_score": {
+            "functions": [{
+                "field_value_factor": {
+                    "field": "customerReviewAverage",
+                    "missing": 0.0
+                }
+            }],
+            "query": {
+              "match_all": {}
+            }
+          }
+        }
+      },
+      {
+        "name": "shipping_cost",
+        "template_language": "mustache",
+        "template": {
+          "function_score": {
+            "functions": [{
+                "field_value_factor": {
+                    "field": "shippingCost",
+                    "missing": 0.0
+                }
+            }],
+            "query": {
+              "match_all": {}
+            }
+          }
+        }
+      },
+      {
+        "name": "home_delivery",
+        "template_language": "mustache",
+        "template": {
+          "constant_score": {
+            "filter": {
+              "match": {
+                "homeDelivery": true
+              }
+            },
+            "boost": 1.0
+          }
+        }
       }
     ]
   }
