@@ -4,9 +4,20 @@ import random
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
+import re
+from nltk.stem.snowball import EnglishStemmer
+
+_RE_COMBINE_WHITESPACE = re.compile(r"(?a:\s+)")
+_RE_STRIP_WHITESPACE = re.compile(r"(?a:^\s+|\s+$)")
+_RE_NOT_ALPHANUMERIC = re.compile(r"[^.a-zA-Z0-9_\s]")
+stemmer = EnglishStemmer()
+
 def transform_name(product_name):
-    # IMPLEMENT
-    return product_name
+    product_name = product_name.lower()
+    product_name = _RE_NOT_ALPHANUMERIC.sub("", product_name)
+    product_name = _RE_COMBINE_WHITESPACE.sub(" ", product_name)
+    product_name = _RE_STRIP_WHITESPACE.sub("", product_name)
+    return " ".join(map(stemmer.stem, product_name.split(" ")))
 
 # Directory for product data
 directory = r'/workspace/datasets/product_data/products/'
