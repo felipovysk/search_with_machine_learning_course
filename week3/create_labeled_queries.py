@@ -21,6 +21,7 @@ general.add_argument("--output", default=output_file_name, help="the file to out
 
 args = parser.parse_args()
 output_file_name = args.output
+threshold = int(args.min_queries)
 
 if args.min_queries:
     min_queries = int(args.min_queries)
@@ -49,8 +50,38 @@ df = pd.read_csv(queries_file_name)[['category', 'query']]
 df = df[df['category'].isin(categories)]
 
 # IMPLEMENT ME: Convert queries to lowercase, and optionally implement other normalization, like stemming.
+from nltk.stem.snowball import SnowballStemmer
+from re import compile
+stemmer = SnowballStemmer("english")
+RE_SPECIAL = compile('[_\/+-\.]')
 
-# IMPLEMENT ME: Roll up categories to ancestors to satisfy the minimum number of queries per category.
+def normalize_query(query: str) -> str:
+    remove_unnecessary = lambda s: RE_SPECIAL.sub(' ', s)
+    normalized_query = ' '.join(map(stemmer.stem, remove_unnecessary(query).lower().split()))
+    return normalized_query
+
+df['query'] = df['query'].map(normalize_query)
+
+from functools import cache
+
+@cache
+def has_parent(category):
+    return parents_df[parents_df['category'] == category].size > 0
+
+def parent(category):
+    return parents_df[parents_df['category'] == category].iloc[0]['parent']
+
+def rollback_to_parent(series):
+    vc = series[series.apply(has_parent)].value_counts()
+    vc = vc[vc < threshold]
+    if vc.size == 0:
+        return (False, series)
+    return (True, series.replace({bc: parent(bc) for bc in vc.index}))
+
+has_bad, new_series = rollback_to_parent(df['category'])
+while has_bad:
+    df['category'] = new_series
+    has_bad, new_series = rollback_to_parent(df['category'])
 
 # Create labels in fastText format.
 df['label'] = '__label__' + df['category']
