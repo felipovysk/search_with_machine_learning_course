@@ -47,6 +47,26 @@ def create_prior_queries(doc_ids, doc_id_weights,
                 pass  # nothing to do in this case, it just means we can't find priors for this doc
     return click_prior_query
 
+from sentence_transformers import SentenceTransformer
+
+transformer_model = SentenceTransformer('sentence-transformers/all-MiniLM-L6-v2')
+
+def create_vector_query(user_query: str, size: int = 10, source: list[str] = None):
+    query_vector = transformer_model.encode([user_query])[0]
+    query_obj = {
+        "size": size,
+        "query": {
+            "knn": {
+                "embedding": {
+                     "vector": query_vector.tolist(),
+                     "k": 10
+                }
+            }
+        }
+    }
+    if source is not None:  # otherwise use the default and retrieve all source
+        query_obj["_source"] = source
+    return query_obj
 
 # Hardcoded query here.  Better to use search templates or other query config.
 def create_query(user_query, click_prior_query, filters, sort="_score", sortDir="desc", size=10, source=None, use_synonym=False):
@@ -217,7 +237,7 @@ def get_categories(query: str, threshold: int = 0.75) -> list[str]:
     return final_labels
     
 
-def search(client, user_query, index="bbuy_products", sort="_score", sortDir="desc", use_synonym = False):
+def search(client, user_query, index="bbuy_products", sort="_score", sortDir="desc", use_synonym = False, vector_search=False):
     categories = get_categories(query)
     filters = None
     if categories is not None:
@@ -228,7 +248,10 @@ def search(client, user_query, index="bbuy_products", sort="_score", sortDir="de
                 }
             }
         ]
-    query_obj = create_query(user_query, click_prior_query=None, filters=filters, sort=sort, sortDir=sortDir, source=["name", "shortDescription"], use_synonym=use_synonym)
+    if not vector_search:
+        query_obj = create_query(user_query, click_prior_query=None, filters=filters, sort=sort, sortDir=sortDir, source=["name", "shortDescription"], use_synonym=use_synonym)
+    else:
+        query_obj = create_vector_query(user_query, size=10, source=["name", "shortDescription"])
     logging.info(query_obj)
     print(json.dumps(query_obj))
     response = client.search(query_obj, index=index)
@@ -253,6 +276,8 @@ if __name__ == "__main__":
                          help='The OpenSearch admin.  If this is set, the program will prompt for password too. If not set, use default of admin/admin')
     general.add_argument('--synonyms', action='store_true',
                          help='Whether or not to use synonyms on the `name` field')
+    general.add_argument('--vector', action='store_true',
+                         help='Include if you want to do a nearest-neighbor search')
 
     args = parser.parse_args()
 
@@ -281,6 +306,7 @@ if __name__ == "__main__":
     )
     index_name = args.index
     use_synonym = args.synonyms
+    vector_search = args.vector
     query_prompt = "\nEnter your query (type 'Exit' to exit or hit ctrl-c):"
     print(query_prompt)
     for line in sys.stdin:
@@ -288,7 +314,7 @@ if __name__ == "__main__":
         if query == "Exit":
             break
         #### W3: classify the query
-        search(client=opensearch, user_query=query, index=index_name, use_synonym=use_synonym)
+        search(client=opensearch, user_query=query, index=index_name, use_synonym=use_synonym, vector_search=vector_search)
 
         print(query_prompt)
 
