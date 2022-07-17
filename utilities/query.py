@@ -188,9 +188,47 @@ def create_query(user_query, click_prior_query, filters, sort="_score", sortDir=
         query_obj["_source"] = source
     return query_obj
 
+from nltk.stem.snowball import SnowballStemmer
+from re import compile
+stemmer = SnowballStemmer("english")
+RE_SPECIAL = compile('[_\/+-\.]')
+
+def normalize_query(query: str) -> str:
+    remove_unnecessary = lambda s: RE_SPECIAL.sub(' ', s)
+    normalized_query = ' '.join(map(stemmer.stem, remove_unnecessary(query).lower().split()))
+    return normalized_query
+
+from fasttext import load_model
+model_path = "/workspace/models/default_model_10000.bin"
+model = load_model(model_path)
+
+def get_categories(query: str, threshold: int = 0.75) -> list[str]:
+    nq = normalize_query(query)
+    labels, probabilities = model.predict(nq, 5)
+    final_labels = []
+    sum_probabilities = 0.0
+    for label, probability in zip(labels, probabilities):
+        sum_probabilities += probability
+        final_labels.append(label[9:])
+        if sum_probabilities >= threshold:
+            break
+    if sum_probabilities < threshold:
+        final_labels = None
+    return final_labels
+    
 
 def search(client, user_query, index="bbuy_products", sort="_score", sortDir="desc", use_synonym = False):
-    query_obj = create_query(user_query, click_prior_query=None, filters=None, sort=sort, sortDir=sortDir, source=["name", "shortDescription"], use_synonym=use_synonym)
+    categories = get_categories(query)
+    filters = None
+    if categories is not None:
+        filters = [
+            {
+                "terms": {
+                    "categoryPathIds": categories
+                }
+            }
+        ]
+    query_obj = create_query(user_query, click_prior_query=None, filters=filters, sort=sort, sortDir=sortDir, source=["name", "shortDescription"], use_synonym=use_synonym)
     logging.info(query_obj)
     print(json.dumps(query_obj))
     response = client.search(query_obj, index=index)
